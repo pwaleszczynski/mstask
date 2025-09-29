@@ -1,0 +1,66 @@
+version: "3.5"
+
+services:
+  db:
+    container_name: "${CONTAINER_NAME_PREFIX}--db"
+    image: mariadb:latest
+    environment:
+      - MARIADB_ROOT_USER=${ROOT_USER}
+      - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes
+      - MARIADB_USER=${DB_USER}
+      - MARIADB_PASSWORD=${DB_PASSWORD}
+      - MARIADB_DATABASE=${DB_NAME}
+    volumes:
+      - db:/var/lib/mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    networks:
+      - symfony
+
+  php:
+    build:
+      context: ./php
+      args:
+        TIMEZONE: ${TIMEZONE}
+    container_name: "${CONTAINER_NAME_PREFIX}--php"
+    volumes:
+      - ${SYMFONY_PROJECT_PATH}:/var/www/symfony:cached
+    depends_on:
+      - db
+    networks:
+      - symfony
+
+  nginx:
+    build:
+      context: ./nginx
+    container_name: "${CONTAINER_NAME_PREFIX}--nginx"
+    restart: on-failure
+    volumes:
+      - ${SYMFONY_PROJECT_PATH}:/var/www/symfony:cached
+    ports:
+      - "8001:80"
+    depends_on:
+      - php
+    networks:
+      - symfony
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8080:80"
+    networks:
+      - symfony
+
+volumes:
+  db:
+
+networks:
+  symfony:
+    name: symfony
